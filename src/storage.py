@@ -21,7 +21,6 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import plyvel
 import ast
 import hashlib
 import os
@@ -151,7 +150,7 @@ class Node(object):
 class DB(object):
 
     def __init__(self, path, name, cache_size):
-        self.db = plyvel.DB(os.path.join(path, name), create_if_missing=True, compression=None, lru_cache_size=cache_size)
+        #self.db = plyvel.DB(os.path.join(path, name), create_if_missing=True, compression=None, lru_cache_size=cache_size)
         self.batch = self.db.write_batch()
         self.cache = {}
         self.lock = threading.Lock()
@@ -201,23 +200,23 @@ class Storage(object):
         self.dbpath = config.get('leveldb', 'path')
         if not os.path.exists(self.dbpath):
             os.mkdir(self.dbpath)
-        try:
-            self.db_utxo = DB(self.dbpath, 'utxo', config.getint('leveldb', 'utxo_cache'))
-            self.db_hist = DB(self.dbpath, 'hist', config.getint('leveldb', 'hist_cache'))
-            self.db_addr = DB(self.dbpath, 'addr', config.getint('leveldb', 'addr_cache'))
-            self.db_undo = DB(self.dbpath, 'undo', None)
-        except:
-            logger.error('db init', exc_info=True)
-            self.shared.stop()
-        try:
-            self.last_hash, self.height, db_version = ast.literal_eval(self.db_undo.get('height'))
-        except:
-            print_log('Initializing database')
-            self.height = 0
-            self.last_hash = GENESIS_HASH
-            self.pruning_limit = config.getint('leveldb', 'pruning_limit')
-            db_version = DB_VERSION
-            self.put_node('', Node.from_dict({}))
+        #try:
+        #    self.db_utxo = DB(self.dbpath, 'utxo', config.getint('leveldb', 'utxo_cache'))
+        #    self.db_hist = DB(self.dbpath, 'hist', config.getint('leveldb', 'hist_cache'))
+        #    self.db_addr = DB(self.dbpath, 'addr', config.getint('leveldb', 'addr_cache'))
+        #    self.db_undo = DB(self.dbpath, 'undo', None)
+        #except:
+        #    logger.error('db init', exc_info=True)
+            #self.shared.stop()
+       # try:
+        #    self.last_hash, self.height, db_version = ast.literal_eval(self.db_undo.get('height'))
+        #except:
+        print_log('Initializing database')
+        self.height = 100
+        self.last_hash = GENESIS_HASH
+        self.pruning_limit = config.getint('leveldb', 'pruning_limit')
+        db_version = DB_VERSION
+        self.put_node('', Node.from_dict({}))
         # check version
         if db_version != DB_VERSION:
             print_log("Your database '%s' is deprecated. Please create a new database"%self.dbpath)
@@ -228,23 +227,23 @@ class Storage(object):
             self.pruning_limit = ast.literal_eval(self.db_undo.get('limit'))
         except:
             self.pruning_limit = config.getint('leveldb', 'pruning_limit')
-            self.db_undo.put('version', repr(self.pruning_limit))
+            #self.db_undo.put('version', repr(self.pruning_limit))
         # reorg limit
         try:
             self.reorg_limit = ast.literal_eval(self.db_undo.get('reorg_limit'))
         except:
             self.reorg_limit = config.getint('leveldb', 'reorg_limit')
-            self.db_undo.put('reorg_limit', repr(self.reorg_limit))
+            #self.db_undo.put('reorg_limit', repr(self.reorg_limit))
         # compute root hash
         root_node = self.get_node('')
-        self.root_hash, coins = root_node.get_hash('', None)
+        #self.root_hash, coins = root_node.get_hash('', None)
         # print stuff
         print_log("Database version %d."%db_version)
         print_log("Pruning limit for spent outputs is %d."%self.pruning_limit)
         print_log("Reorg limit is %d blocks."%self.reorg_limit)
         print_log("Blockchain height", self.height)
-        print_log("UTXO tree root hash:", self.root_hash.encode('hex'))
-        print_log("Coins in database:", coins)
+        #print_log("UTXO tree root hash:", self.root_hash.encode('hex'))
+        #print_log("Coins in database:", coins)
 
     # convert between bitcoin addresses and 20 bytes keys used for storage.
     @staticmethod
@@ -352,10 +351,12 @@ class Storage(object):
         return word1[0:index]
 
     def put_node(self, key, node):
-        self.db_utxo.put(key, node.serialized())
+        #self.db_utxo.put(key, node.serialized())
+        print('put_node')
 
     def get_node(self, key):
-        s = self.db_utxo.get(key)
+        s = None 
+        #self.db_utxo.get(key)
         if s is None:
             return
         return Node(s)
@@ -571,8 +572,9 @@ class Storage(object):
             db.write()
 
     def close(self):
-        for db in [self.db_utxo, self.db_addr, self.db_hist, self.db_undo]:
-            db.close()
+        print('close')
+        #for db in [self.db_utxo, self.db_addr, self.db_hist, self.db_undo]:
+        #    db.close()
 
     def save_height(self, block_hash, block_height):
         self.db_undo.put('height', repr((block_hash, block_height, DB_VERSION)))
