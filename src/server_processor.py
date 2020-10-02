@@ -32,8 +32,6 @@ from processor import Processor
 from utils import Hash, print_log
 from version import VERSION
 from utils import logger
-from ircthread import IrcThread
-
 
 
 class ServerProcessor(Processor):
@@ -45,15 +43,7 @@ class ServerProcessor(Processor):
         self.shared = shared
         self.irc_queue = Queue.Queue()
         self.peers = {}
-
-        if self.config.get('server', 'irc') == 'yes':
-            self.irc = IrcThread(self, self.config)
-            self.irc.start(self.irc_queue)
-            t = threading.Thread(target=self.read_irc_results)
-            t.daemon = True
-            t.start()
-        else:
-            self.irc = None
+        self.irc = None
 
 
     def read_irc_results(self):
