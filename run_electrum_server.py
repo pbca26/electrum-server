@@ -307,7 +307,7 @@ if __name__ == '__main__':
     start_server(config)
 
     from SimpleXMLRPCServer import SimpleXMLRPCServer
-    server = SimpleXMLRPCServer(('localhost', electrum_rpc_port), allow_none=True, logRequests=False)
+    server = SimpleXMLRPCServer(('localhost', electrum_rpc_port), allow_none=True, logRequests=True)
     server.register_function(lambda: os.getpid(), 'getpid')
     server.register_function(shared.stop, 'stop')
     server.register_function(cmd_getinfo, 'getinfo')
