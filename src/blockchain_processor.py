@@ -207,7 +207,7 @@ class BlockchainProcessor(Processor):
         #return self.block2header(b)
 
     def init_headers(self, db_height):
-        self.headers_filename = os.path.join(self.headers_path, 'blockchain_headers')
+        self.headers_filename = os.path.join(os.path.join(os.path.dirname(__file__)), 'blockchain_headers')
 
         if os.path.exists(self.headers_filename):
             height = os.path.getsize(self.headers_filename)/80 - 1   # the current height
@@ -519,7 +519,6 @@ class BlockchainProcessor(Processor):
                     self.shared.stop()
                 if l == []:
                     del self.watched_addresses[addr]
-
 
     def process(self, request, cache_only=False):
         
