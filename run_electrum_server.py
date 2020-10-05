@@ -117,7 +117,7 @@ def create_config(filename=None):
 
     # try to find the config file in the default paths
     if not filename:
-        for path in ('/etc/', ''):
+        for path in (os.path.join(os.path.dirname(__file__)), ''):
             filename = path + 'electrum.conf'
             if os.path.isfile(filename):
                 break
