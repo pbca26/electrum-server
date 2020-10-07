@@ -30,6 +30,9 @@ import sys
 import time
 import threading
 import urllib
+import urllib2
+import json
+from decimal import Decimal
 
 import deserialize
 from processor import Processor, print_log
@@ -519,6 +522,32 @@ class BlockchainProcessor(Processor):
                     self.shared.stop()
                 if l == []:
                     del self.watched_addresses[addr]
+
+
+    def nspv_request(self, method, params):
+        # python 3
+        ''' body = {"jsonrpc": "2.0", "method": method, "params": params}  
+
+        myurl = 'http://127.0.0.1:7771'
+        req = urllib2.request.Request(myurl)
+        req.add_header('Content-Type', 'application/json; charset=utf-8')
+        jsondata = json.dumps(body)
+        jsondataasbytes = jsondata.encode('utf-8')   # needs to be bytes
+        req.add_header('Content-Length', len(jsondataasbytes))
+        print (jsondataasbytes)
+        response = urllib2.request.urlopen(req, jsondataasbytes)
+        data = json.loads(response.read())
+        print('[NSPV response]', data) '''
+        
+        # python 2
+        body = {"jsonrpc": "2.0", "method": method, "params": params}  
+        req = urllib2.Request('http://127.0.0.1:7771')
+        req.add_header('Content-Type', 'application/json')
+        response = urllib2.urlopen(req, json.dumps(body))
+        data = json.loads(response.read())
+        print('[NSPV request]', body)
+        print('[NSPV response]', data)
+        return data
 
     def process(self, request, cache_only=False):
         
