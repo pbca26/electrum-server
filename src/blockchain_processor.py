@@ -549,6 +549,36 @@ class BlockchainProcessor(Processor):
         print('[NSPV response]', data)
         return data
 
+    def satoshi(self, value):
+        return int(float("{0:.8f}".format(value)) * 100000000)
+
+    def nspv_normalize_listtransactions(self, data):
+        result = []
+        txids = []
+
+        for tx in data['txids']:
+            if tx['txid'] not in txids:
+                result.append({
+                    "tx_hash": tx['txid'],
+                    "height": tx['height']
+                })
+                txids.append(tx['txid'])
+
+        return result
+
+    def nspv_normalize_listunspent(self, data):
+        result = []
+
+        for utxo in data['utxos']:
+            result.append({
+                "tx_hash": utxo['txid'],
+                "height": utxo['height'],
+                "tx_pos": utxo['vout'],
+                "value": self.satoshi(utxo['value'])
+            })
+
+        return result
+
     def process(self, request, cache_only=False):
         
         message_id = request['id']
