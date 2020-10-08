@@ -587,8 +587,11 @@ class BlockchainProcessor(Processor):
         result = None
         error = None
 
+        # {"jsonrpc": "2.0", "error": {"code": 1, "message": "RNTv4xTLLm26p3SvsQCBy9qNK7s1RgGYSB is not a valid script hash"}, "id": 1}
+
         if method == 'blockchain.scripthash.subscribe':
-            result = []
+            # stub method
+            result = '2cd76590e904e447289967fb84b132be2b9f90b4ca8b39cb077f9b4a0ca624de'
 
         if method == 'blockchain.numblocks.subscribe':
             result = 1545504
