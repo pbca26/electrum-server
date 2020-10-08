@@ -615,6 +615,14 @@ class BlockchainProcessor(Processor):
             else:
                 result = self.nspv_normalize_listunspent(nspv_res)
 
+        elif method == 'blockchain.transaction.get':
+            tx_hash = params[0]
+            nspv_res = self.nspv_request('txproof', [tx_hash])
+            if nspv_res['hex'] is None:
+                raise BaseException('unable to get transaction hex')
+            else:
+                result = nspv_res['hex']
+
         elif method == 'blockchain.headers.subscribe':
             result = []
             #self.header
