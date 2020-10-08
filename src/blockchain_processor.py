@@ -593,9 +593,19 @@ class BlockchainProcessor(Processor):
             # stub method
             result = '2cd76590e904e447289967fb84b132be2b9f90b4ca8b39cb077f9b4a0ca624de'
 
-        if method == 'blockchain.numblocks.subscribe':
+        elif method == 'blockchain.numblocks.subscribe':
             result = 1545504
+            # NSPV getinfo
+            # TODO
             #self.storage.height
+
+        elif method == 'blockchain.scripthash.get_history':
+            address = str(params[0])
+            nspv_res = self.nspv_request('listtransactions', [address])
+            if nspv_res['result'] == 'error':
+                raise BaseException(nspv_res['error'])
+            else:
+                result = self.nspv_normalize_listtransactions(nspv_res)
 
         elif method == 'blockchain.headers.subscribe':
             result = []
