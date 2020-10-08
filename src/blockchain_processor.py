@@ -624,8 +624,11 @@ class BlockchainProcessor(Processor):
                 result = nspv_res['hex']
 
         elif method == 'blockchain.headers.subscribe':
-            result = []
-            #self.header
+            nspv_res = self.nspv_request('getinfo', [])
+            if nspv_res['result'] == 'error':
+                raise BaseException(nspv_res['error'])
+            else:
+                result = {"hex": "", "height": nspv_res['height']}
 
         elif method == 'blockchain.address.subscribe':
             address = str(params[0])
