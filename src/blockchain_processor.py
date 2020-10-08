@@ -607,6 +607,14 @@ class BlockchainProcessor(Processor):
             else:
                 result = self.nspv_normalize_listtransactions(nspv_res)
 
+        elif method == 'blockchain.scripthash.listunspent':
+            address = str(params[0])
+            nspv_res = self.nspv_request('listunspent', [address])
+            if nspv_res['result'] == 'error':
+                raise BaseException(nspv_res['error'])
+            else:
+                result = self.nspv_normalize_listunspent(nspv_res)
+
         elif method == 'blockchain.headers.subscribe':
             result = []
             #self.header
