@@ -596,7 +596,6 @@ class BlockchainProcessor(Processor):
         elif method == 'blockchain.numblocks.subscribe':
             result = 1545504
             # NSPV getinfo
-            # TODO
             #self.storage.height
 
         elif method == 'blockchain.scripthash.get_history':
@@ -629,6 +628,24 @@ class BlockchainProcessor(Processor):
                 raise BaseException(nspv_res['error'])
             else:
                 result = {"hex": "", "height": nspv_res['height']}
+
+        elif method == 'blockchain.transaction.broadcast':
+            rawtx = params[0]
+            nspv_res = self.nspv_request('broadcast', [rawtx])
+            print(nspv_res)
+            if nspv_res['expected'] == nspv_res['broadcast']:
+                raise BaseException('unable to broadcast transaction')
+            else:
+                result = nspv_res['expected']
+
+        #blockchain.block.header
+        #elif method == 'blockchain.block.headers':
+
+        # https://github.com/kyuupichan/electrumx/blob/master/docs/protocol-methods.rst#blockchainblockheaders
+        # return concatenated block headers (start_height, count, cp_height=0)
+        #elif method == 'blockchain.block.headers':
+        #    address = str(params[0])
+        #    blockchain.scripthash.get_history
 
         elif method == 'blockchain.address.subscribe':
             address = str(params[0])
@@ -676,34 +693,10 @@ class BlockchainProcessor(Processor):
                 index = int(params[0])
                 result = self.get_chunk(index)
 
-        elif method == 'blockchain.transaction.broadcast':
-            try:
-                txo = self.bitcoind('sendrawtransaction', params)
-                print_log("sent tx:", txo)
-                result = txo
-            except BaseException, e:
-                error = e.args[0]
-                if error["code"] == -26:
-                    # If we return anything that's not the transaction hash,
-                    #  it's considered an error message
-                    message = error["message"]
-                    if "non-mandatory-script-verify-flag" in message:
-                        result = "Your client produced a transaction that is not accepted by the Bitcoin network any more. Please upgrade to Electrum 2.5.1 or newer\n"
-                    else:
-                        result = "The transaction was rejected by network rules.(" + message + ")\n" \
-                            "[" + params[0] + "]"
-                else:
-                    result = error["message"]  # do send an error
-                print_log("error:", result)
-
         elif method == 'blockchain.transaction.get_merkle':
             tx_hash = params[0]
             tx_height = params[1]
             result = self.get_merkle(tx_hash, tx_height, cache_only)
-
-        elif method == 'blockchain.transaction.get':
-            tx_hash = params[0]
-            result = self.bitcoind('getrawtransaction', (tx_hash, 0))
 
         elif method == 'blockchain.estimatefee':
             num = int(params[0])
