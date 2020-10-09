@@ -31,7 +31,7 @@ import threading
 import json
 import os
 import imp
-
+import subprocess
 
 if os.path.dirname(os.path.realpath(__file__)) == os.getcwd():
     imp.load_module('electrumserver', *imp.find_module('src'))
@@ -269,6 +269,13 @@ def start_server(config):
     for server in transports:
         server.start()
 
+    # start nspv daemon
+    command = ["./bins/osx/nspv"]
+    nspv = subprocess.Popen(command, shell=False, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+    if nspv.poll():
+        print("nspv not running")
+    else:
+        print("nspv is running")
 
 def stop_server():
     shared.stop()
