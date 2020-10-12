@@ -33,6 +33,7 @@ import urllib
 import urllib2
 import json
 from decimal import Decimal
+import string
 
 import deserialize
 from processor import Processor, print_log
@@ -57,6 +58,8 @@ class BlockchainProcessor(Processor):
         self.watch_blocks = []
         self.watch_headers = []
         self.watched_addresses = {}
+        self.watched_addresses_flat = {}
+        self.mempool_txs = {}
 
         self.history_cache = {}
         self.merkle_cache = {}
@@ -73,6 +76,7 @@ class BlockchainProcessor(Processor):
         self.mempool_unconfirmed = {} # txid -> set of unconfirmed inputs
         self.mempool_hashes = set()
         self.mempool_lock = threading.Lock()
+        self.tip = 0
 
         self.address_queue = Queue()
 
@@ -579,6 +583,20 @@ class BlockchainProcessor(Processor):
 
         return result
 
+    def set_tip(self, height):
+        if height > self.tip:
+            self.tip = height
+            print('new tip', self.tip)
+
+    def sync_chaintip(self):
+        nspv_res = self.nspv_request('getinfo', [])
+        if nspv_res['result'] == 'error':
+            print('unable to update chaintip')
+        else:
+            self.set_tip(nspv_res['height'])
+            # send notification
+        time.sleep(5)
+
     def process(self, request, cache_only=False):
         
         message_id = request['id']
@@ -594,9 +612,16 @@ class BlockchainProcessor(Processor):
             result = '2cd76590e904e447289967fb84b132be2b9f90b4ca8b39cb077f9b4a0ca624de'
 
         elif method == 'blockchain.numblocks.subscribe':
-            result = 1545504
-            # NSPV getinfo
-            #self.storage.height
+            # TODO notifier
+            if self.tip == 0:
+                nspv_res = self.nspv_request('getinfo', [])
+                if nspv_res['result'] == 'error':
+                    raise BaseException(nspv_res['error'])
+                else:
+                    self.set_tip(nspv_res['height'])
+                    result = nspv_res['height']
+            else:
+                result = self.tip
 
         elif method == 'blockchain.scripthash.get_history':
             address = str(params[0])
@@ -870,6 +895,8 @@ class BlockchainProcessor(Processor):
                         })
 
         while True:
+            self.sync_chaintip()
+            
             try:
                 addr, sessions = self.address_queue.get(False)
             except:
@@ -882,5 +909,4 @@ class BlockchainProcessor(Processor):
                         'method': 'blockchain.address.subscribe',
                         'params': (addr, status),
                         })
-
 
