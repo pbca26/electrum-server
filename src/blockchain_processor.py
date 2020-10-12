@@ -41,6 +41,11 @@ from storage import Storage
 from utils import logger, hash_decode, hash_encode, Hash, header_from_string, header_to_string, ProfiledThread, \
     rev_hex, int_to_hex4
 
+def randomString(stringLength=10):
+    """Generate a random string of fixed length """
+    letters = string.ascii_lowercase
+    return ''.join(random.choice(letters) for i in range(stringLength))
+
 class BlockchainProcessor(Processor):
 
     def __init__(self, config, shared):
@@ -502,6 +507,16 @@ class BlockchainProcessor(Processor):
                 l = self.watched_addresses.get(address)
                 if l is None:
                     self.watched_addresses[address] = [session]
+                    #self.watched_addresses_flat.append(address)
+                elif session not in l:
+                    l.append(session)
+
+            elif method == 'blockchain.scripthash.subscribe':
+                print('subscribe')
+                address = params[0]
+                l = self.watched_addresses.get(address)
+                if l is None:
+                    self.watched_addresses[address] = [session]
                 elif session not in l:
                     l.append(session)
 
@@ -549,9 +564,23 @@ class BlockchainProcessor(Processor):
         req.add_header('Content-Type', 'application/json')
         response = urllib2.urlopen(req, json.dumps(body))
         data = json.loads(response.read())
-        print('[NSPV request]', body)
-        print('[NSPV response]', data)
+        print('[NSPV daemon request]', body)
+        print('[NSPV daemon response]', data)
         return data
+
+    def pushtx_insight_kmd(self, rawtx):
+        # python 2
+        try:
+            body = {"rawtx": rawtx}  
+            req = urllib2.Request('https://www.kmdexplorer.io/insight-api-komodo/tx/send')
+            req.add_header('Content-Type', 'application/json')
+            response = urllib2.urlopen(req, json.dumps(body))
+            data = json.loads(response.read())
+            print('[KMD Insight push tx request]', body)
+            print('[KMD Insight push tx response]', data)
+            return data
+        except:
+            return {}
 
     def satoshi(self, value):
         return int(float("{0:.8f}".format(value)) * 100000000)
@@ -567,7 +596,18 @@ class BlockchainProcessor(Processor):
                     "height": tx['height']
                 })
                 txids.append(tx['txid'])
+            if tx['txid'] in self.mempool_txs:
+                print('tx is already in history, remove ' + tx['txid'])
+                del self.mempool_txs[tx['txid']]
 
+        for tx in self.mempool_txs:
+            if tx not in txids   :
+                print('tx is not in history, append ' + tx)
+                result.append({
+                    "tx_hash": tx,
+                    "height": 0
+                })
+                txids.append(tx[0])
         return result
 
     def nspv_normalize_listunspent(self, data):
@@ -597,6 +637,7 @@ class BlockchainProcessor(Processor):
             # send notification
         time.sleep(5)
 
+    # TODO: check mempool, compare diff with tx_history, if new tx found set height to 0 and append to tx_history 
     def process(self, request, cache_only=False):
         
         message_id = request['id']
@@ -605,7 +646,7 @@ class BlockchainProcessor(Processor):
         result = None
         error = None
 
-        # {"jsonrpc": "2.0", "error": {"code": 1, "message": "RNTv4xTLLm26p3SvsQCBy9qNK7s1RgGYSB is not a valid script hash"}, "id": 1}
+        # {"jsonrpc": "2.0", "error": {"code": 1, "message": "RGJ1zdFS1G2eSJGJDE1UPEHrHg9jhRMLJL is not a valid script hash"}, "id": 1}
 
         if method == 'blockchain.scripthash.subscribe':
             # stub method
@@ -641,11 +682,11 @@ class BlockchainProcessor(Processor):
 
         elif method == 'blockchain.transaction.get':
             tx_hash = params[0]
-            nspv_res = self.nspv_request('txproof', [tx_hash])
-            if nspv_res['hex'] is None:
-                raise BaseException('unable to get transaction hex')
-            else:
+            nspv_res = self.nspv_request('gettransaction', [tx_hash])
+            if nspv_res['retcode'] == -2006:
                 result = nspv_res['hex']
+            else:
+                raise BaseException('unable to get transaction hex')
 
         elif method == 'blockchain.headers.subscribe':
             nspv_res = self.nspv_request('getinfo', [])
@@ -656,21 +697,24 @@ class BlockchainProcessor(Processor):
 
         elif method == 'blockchain.transaction.broadcast':
             rawtx = params[0]
-            nspv_res = self.nspv_request('broadcast', [rawtx])
-            print(nspv_res)
-            if nspv_res['expected'] == nspv_res['broadcast']:
+            # temp workaround until NSPV broadcast method is fixed
+            pushtx_insight_kmd_res = self.pushtx_insight_kmd(rawtx)
+            print(pushtx_insight_kmd_res)
+            if 'txid' not in pushtx_insight_kmd_res:
                 raise BaseException('unable to broadcast transaction')
             else:
-                result = nspv_res['expected']
+                if pushtx_insight_kmd_res['txid'] not in self.mempool_txs:
+                    self.mempool_txs[pushtx_insight_kmd_res['txid']] = True
+                    print('added tx to mempool' + pushtx_insight_kmd_res['txid'])
+                    print('current mempool', self.mempool_txs)
+                    self.address_notifier()
+                result = pushtx_insight_kmd_res['txid']
 
-        #blockchain.block.header
-        #elif method == 'blockchain.block.headers':
-
-        # https://github.com/kyuupichan/electrumx/blob/master/docs/protocol-methods.rst#blockchainblockheaders
-        # return concatenated block headers (start_height, count, cp_height=0)
-        #elif method == 'blockchain.block.headers':
-        #    address = str(params[0])
-        #    blockchain.scripthash.get_history
+            #nspv_res = self.nspv_request('broadcast', [rawtx])
+            #if nspv_res['expected'] == nspv_res['broadcast']:
+            #    raise BaseException('unable to broadcast transaction')
+            #else:
+            #    result = nspv_res['expected']
 
         elif method == 'blockchain.address.subscribe':
             address = str(params[0])
@@ -867,6 +911,21 @@ class BlockchainProcessor(Processor):
         print_log("Database is closed")
 
 
+    def address_notifier(self):
+        # time based history update
+        if self.watched_addresses is not None:
+            for addr in self.watched_addresses:
+                print('watched address', addr)
+                print('session', self.watched_addresses[addr])
+
+                for session in self.watched_addresses[addr]:
+                    self.push_response(session, {
+                        'id': None,
+                        'method': 'blockchain.scripthash.subscribe',
+                        'params': (addr, randomString(64)),
+                    })
+        time.sleep(10)
+
     def main_iteration(self):
         if self.shared.stopped():
             print_log("Stopping timer")
@@ -895,10 +954,12 @@ class BlockchainProcessor(Processor):
                         })
 
         while True:
+            self.address_notifier()
             self.sync_chaintip()
             
             try:
                 addr, sessions = self.address_queue.get(False)
+                print('addr', addr)
             except:
                 break
 
@@ -909,4 +970,5 @@ class BlockchainProcessor(Processor):
                         'method': 'blockchain.address.subscribe',
                         'params': (addr, status),
                         })
+
 
