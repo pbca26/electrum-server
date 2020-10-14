@@ -21,7 +21,7 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from itertools import imap
+
 import threading
 import time
 import hashlib
@@ -155,7 +155,7 @@ def bc_address_to_hash_160(addr):
 def b58encode(v):
     """encode v, which is a string of bytes, to base58."""
 
-    long_value = 0L
+    long_value = 0
     for (i, c) in enumerate(v[::-1]):
         long_value += (256**i) * ord(c)
 
@@ -180,7 +180,7 @@ def b58encode(v):
 
 def b58decode(v, length):
     """ decode v into a string of len bytes."""
-    long_value = 0L
+    long_value = 0
     for (i, c) in enumerate(v[::-1]):
         long_value += __b58chars.find(c) * (__b58base**i)
 
@@ -246,7 +246,7 @@ def init_logger():
     logger.setLevel(logging.INFO)
 
 def print_log(*args):
-    logger.info(" ".join(imap(str, args)))
+    logger.info(" ".join(map(str, args)))
 
 def print_warning(message):
     logger.warning(message)
