@@ -12,13 +12,11 @@ setup(
         'electrumserver.__init__',
         'electrumserver.utils',
         'electrumserver.storage',
-        'electrumserver.deserialize',
         'electrumserver.networks',
         'electrumserver.blockchain_processor',
         'electrumserver.server_processor',
         'electrumserver.processor',
         'electrumserver.version',
-        'electrumserver.ircthread',
         'electrumserver.stratum_tcp'
     ],
     description="Bitcoin Electrum Server",

@@ -22,7 +22,7 @@
 # SOFTWARE.
 
 import argparse
-import ConfigParser
+import configparser
 import logging
 import socket
 import sys
@@ -46,11 +46,11 @@ from electrumserver.stratum_tcp import TcpServer
 logging.basicConfig()
 
 if sys.maxsize <= 2**32:
-    print "Warning: it looks like you are using a 32bit system. You may experience crashes caused by mmap"
+    print("Warning: it looks like you are using a 32bit system. You may experience crashes caused by mmap")
 
 if os.getuid() == 0:
-    print "Do not run this program as root!"
-    print "Run the install script to create a non-privileged user."
+    print("Do not run this program as root!")
+    print("Run the install script to create a non-privileged user.")
     sys.exit()
 
 def attempt_read_config(config, filename):
@@ -82,7 +82,7 @@ def setup_network_params(config):
         storage.GENESIS_HASH = config.get('network', 'genesis_hash')
 
 def create_config(filename=None):
-    config = ConfigParser.ConfigParser()
+    config = configparser.ConfigParser()
     # set some defaults, which will be overwritten by the config file
     config.add_section('server')
     config.set('server', 'banner', 'Welcome to Electrum!')
@@ -123,7 +123,7 @@ def create_config(filename=None):
                 break
 
     if not os.path.isfile(filename):
-        print 'could not find electrum configuration file "%s"' % filename
+        print('could not find electrum configuration file "%s"' % filename)
         sys.exit(1)
 
     attempt_read_config(config, filename)
@@ -135,24 +135,24 @@ def create_config(filename=None):
 
 def run_rpc_command(params, electrum_rpc_port):
     cmd = params[0]
-    import xmlrpclib
-    server = xmlrpclib.ServerProxy('http://localhost:%d' % electrum_rpc_port)
+    import xmlrpc.client
+    server = xmlrpc.client.ServerProxy('http://localhost:%d' % electrum_rpc_port)
     func = getattr(server, cmd)
     r = func(*params[1:])
     if cmd == 'sessions':
         now = time.time()
-        print 'type           address         sub  version  time'
+        print('type           address         sub  version  time')
         for item in r:
-            print '%4s   %21s   %3s  %7s  %.2f' % (item.get('name'),
+            print('%4s   %21s   %3s  %7s  %.2f' % (item.get('name'),
                                                    item.get('address'),
                                                    item.get('subscriptions'),
                                                    item.get('version'),
                                                    (now - item.get('time')),
-                                                   )
+                                                   ))
     elif cmd == 'debug':
-        print r
+        print(r)
     else:
-        print json.dumps(r, indent=4, sort_keys=True)
+        print(json.dumps(r, indent=4, sort_keys=True))
 
 
 def cmd_banner_update():
@@ -169,18 +169,17 @@ def cmd_getinfo():
         }
 
 def cmd_sessions():
-    return map(lambda s: {"time": s.time,
+    return [{"time": s.time,
                           "name": s.name,
                           "address": s.address,
                           "version": s.version,
-                          "subscriptions": len(s.subscriptions)},
-               dispatcher.request_dispatcher.get_sessions())
+                          "subscriptions": len(s.subscriptions)} for s in dispatcher.request_dispatcher.get_sessions()]
 
 def cmd_numsessions():
     return len(dispatcher.request_dispatcher.get_sessions())
 
 def cmd_peers():
-    return server_proc.peers.keys()
+    return list(server_proc.peers.keys())
 
 def cmd_numpeers():
     return len(server_proc.peers)
@@ -297,7 +296,7 @@ if __name__ == '__main__':
         try:
             run_rpc_command(args.command, electrum_rpc_port)
         except socket.error:
-            print "server not running"
+            print("server not running")
             sys.exit(1)
         sys.exit(0)
 
@@ -308,12 +307,12 @@ if __name__ == '__main__':
         is_running = False
 
     if is_running:
-        print "server already running"
+        print("server already running")
         sys.exit(1)
 
     start_server(config)
 
-    from SimpleXMLRPCServer import SimpleXMLRPCServer
+    from xmlrpc.server import SimpleXMLRPCServer
     server = SimpleXMLRPCServer(('localhost', electrum_rpc_port), allow_none=True, logRequests=True)
     server.register_function(lambda: os.getpid(), 'getpid')
     server.register_function(shared.stop, 'stop')
