@@ -24,21 +24,21 @@
 import hashlib
 from json import dumps, load
 import os
-from Queue import Queue
+from queue import Queue
 import random
 import sys
 import time
 import threading
-import urllib
-import urllib2
+import urllib.request, urllib.parse, urllib.error
+import urllib.request, urllib.error, urllib.parse
 import json
 from decimal import Decimal
 import string
 
-import deserialize
-from processor import Processor, print_log
-from storage import Storage
-from utils import logger, hash_decode, hash_encode, Hash, header_from_string, header_to_string, ProfiledThread, \
+#from . import deserialize
+from .processor import Processor, print_log
+from .storage import Storage
+from .utils import logger, hash_decode, hash_encode, Hash, header_from_string, header_to_string, ProfiledThread, \
     rev_hex, int_to_hex4
 
 def randomString(stringLength=10):
@@ -114,8 +114,8 @@ class BlockchainProcessor(Processor):
     def test(self):
         self.start_catchup_height = 10
         self.up_to_date = True
-        print "self_shared_stop"
-        print self.shared.stopped()
+        print("self_shared_stop")
+        print(self.shared.stopped())
 
     def do_catch_up(self):
         #self.header = self.block2header(self.bitcoind('getblock', (self.storage.last_hash,)))
@@ -174,7 +174,7 @@ class BlockchainProcessor(Processor):
         return True
         while True:
             try:
-                response = urllib.urlopen(self.bitcoind_url, postdata)
+                response = urllib.request.urlopen(self.bitcoind_url, postdata)
                 r = load(response)
                 response.close()
             except:
@@ -385,7 +385,7 @@ class BlockchainProcessor(Processor):
         tx_list = b.get('tx')
         tx_pos = tx_list.index(tx_hash)
 
-        merkle = map(hash_decode, tx_list)
+        merkle = list(map(hash_decode, tx_list))
         target_hash = hash_decode(tx_hash)
         s = []
         while len(merkle) != 1:
@@ -545,42 +545,62 @@ class BlockchainProcessor(Processor):
 
     def nspv_request(self, method, params):
         # python 3
-        ''' body = {"jsonrpc": "2.0", "method": method, "params": params}  
+        body = {"jsonrpc": "2.0", "method": method, "params": params}  
 
         myurl = 'http://127.0.0.1:7771'
-        req = urllib2.request.Request(myurl)
+        req = urllib.request.Request(myurl)
         req.add_header('Content-Type', 'application/json; charset=utf-8')
         jsondata = json.dumps(body)
         jsondataasbytes = jsondata.encode('utf-8')   # needs to be bytes
         req.add_header('Content-Length', len(jsondataasbytes))
         print (jsondataasbytes)
-        response = urllib2.request.urlopen(req, jsondataasbytes)
+        response = urllib.request.urlopen(req, jsondataasbytes)
         data = json.loads(response.read())
-        print('[NSPV response]', data) '''
-        
-        # python 2
-        body = {"jsonrpc": "2.0", "method": method, "params": params}  
-        req = urllib2.Request('http://127.0.0.1:7771')
-        req.add_header('Content-Type', 'application/json')
-        response = urllib2.urlopen(req, json.dumps(body))
-        data = json.loads(response.read())
-        print('[NSPV daemon request]', body)
-        print('[NSPV daemon response]', data)
+        print(('[NSPV daemon request]', body))
+        print(('[NSPV daemon response]', data))
         return data
 
-    def pushtx_insight_kmd(self, rawtx):
         # python 2
+        #body = {"jsonrpc": "2.0", "method": method, "params": params}  
+        #req = urllib.request.Request('http://127.0.0.1:7771')
+        #req.add_header('Content-Type', 'application/json')
+        #response = urllib.request.urlopen(req, json.dumps(body))
+        #data = json.loads(response.read())
+        #print(('[NSPV daemon request]', body))
+        #print(('[NSPV daemon response]', data))
+        #return data
+
+    def pushtx_insight_kmd(self, rawtx):
+        # python3
         try:
-            body = {"rawtx": rawtx}  
-            req = urllib2.Request('https://www.kmdexplorer.io/insight-api-komodo/tx/send')
-            req.add_header('Content-Type', 'application/json')
-            response = urllib2.urlopen(req, json.dumps(body))
+            body = {"rawtx": rawtx} 
+            myurl = 'https://www.kmdexplorer.io/insight-api-komodo/tx/send'
+            req = urllib.request.Request(myurl)
+            req.add_header('Content-Type', 'application/json; charset=utf-8')
+            jsondata = json.dumps(body)
+            jsondataasbytes = jsondata.encode('utf-8')   # needs to be bytes
+            req.add_header('Content-Length', len(jsondataasbytes))
+            print (jsondataasbytes)
+            response = urllib.request.urlopen(req, jsondataasbytes)
             data = json.loads(response.read())
-            print('[KMD Insight push tx request]', body)
-            print('[KMD Insight push tx response]', data)
+            print(('[KMD Insight push tx request]', body))
+            print(('[KMD Insight push tx response]', data))
             return data
         except:
             return {}
+
+        # python 2
+        #try:
+        #    body = {"rawtx": rawtx}  
+        #    req = urllib.request.Request('https://www.kmdexplorer.io/insight-api-komodo/tx/send')
+        #    req.add_header('Content-Type', 'application/json')
+        #    response = urllib.request.urlopen(req, json.dumps(body))
+        #    data = json.loads(response.read())
+        #    print(('[KMD Insight push tx request]', body))
+        #    print(('[KMD Insight push tx response]', data))
+        #    return data
+        #except:
+        #    return {}
 
     def satoshi(self, value):
         return int(float("{0:.8f}".format(value)) * 100000000)
@@ -597,12 +617,12 @@ class BlockchainProcessor(Processor):
                 })
                 txids.append(tx['txid'])
             if tx['txid'] in self.mempool_txs:
-                print('tx is already in history, remove ' + tx['txid'])
+                print(('tx is already in history, remove ' + tx['txid']))
                 del self.mempool_txs[tx['txid']]
 
         for tx in self.mempool_txs:
             if tx not in txids   :
-                print('tx is not in history, append ' + tx)
+                print(('tx is not in history, append ' + tx))
                 result.append({
                     "tx_hash": tx,
                     "height": 0
@@ -626,7 +646,7 @@ class BlockchainProcessor(Processor):
     def set_tip(self, height):
         if height > self.tip:
             self.tip = height
-            print('new tip', self.tip)
+            print(('new tip', self.tip))
 
     def sync_chaintip(self):
         nspv_res = self.nspv_request('getinfo', [])
@@ -705,16 +725,16 @@ class BlockchainProcessor(Processor):
             else:
                 if pushtx_insight_kmd_res['txid'] not in self.mempool_txs:
                     self.mempool_txs[pushtx_insight_kmd_res['txid']] = True
-                    print('added tx to mempool' + pushtx_insight_kmd_res['txid'])
-                    print('current mempool', self.mempool_txs)
+                    print(('added tx to mempool' + pushtx_insight_kmd_res['txid']))
+                    print(('current mempool', self.mempool_txs))
                     self.address_notifier()
                 result = pushtx_insight_kmd_res['txid']
 
             #nspv_res = self.nspv_request('broadcast', [rawtx])
             #if nspv_res['expected'] == nspv_res['broadcast']:
-            #    raise BaseException('unable to broadcast transaction')
-            #else:
             #    result = nspv_res['expected']
+            #else:
+            #    raise BaseException(nspv_res['type'])
 
         elif method == 'blockchain.address.subscribe':
             address = str(params[0])
@@ -796,7 +816,7 @@ class BlockchainProcessor(Processor):
 
         while True:
             try:
-                response = urllib.urlopen(self.bitcoind_url, postdata)
+                response = urllib.request.urlopen(self.bitcoind_url, postdata)
                 r = load(response)
                 response.close()
             except:
@@ -844,7 +864,7 @@ class BlockchainProcessor(Processor):
             self.up_to_date = False
             try:
                 next_block_hash = self.bitcoind('getblockhash', (self.storage.height + 1,))
-            except BaseException, e:
+            except BaseException as e:
                 revert = True
 
             next_block = self.get_block(next_block_hash if not revert else self.storage.last_hash)
@@ -888,7 +908,7 @@ class BlockchainProcessor(Processor):
             self.storage.close()
 
     def memorypool_update(self):
-        print "fake memorypool_update"
+        print("fake memorypool_update")
 
     def invalidate_cache(self, address):
         with self.cache_lock:
@@ -915,8 +935,8 @@ class BlockchainProcessor(Processor):
         # time based history update
         if self.watched_addresses is not None:
             for addr in self.watched_addresses:
-                print('watched address', addr)
-                print('session', self.watched_addresses[addr])
+                print(('watched address', addr))
+                print(('session', self.watched_addresses[addr]))
 
                 for session in self.watched_addresses[addr]:
                     self.push_response(session, {
@@ -959,7 +979,7 @@ class BlockchainProcessor(Processor):
             
             try:
                 addr, sessions = self.address_queue.get(False)
-                print('addr', addr)
+                print(('addr', addr))
             except:
                 break
 
