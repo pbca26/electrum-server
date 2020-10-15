@@ -22,14 +22,14 @@
 # SOFTWARE.
 
 import json
-import Queue as queue
+import queue as queue
 import socket
 import threading
 import time
 import sys
 
-from utils import random_string, timestr, print_log
-from utils import logger
+from .utils import random_string, timestr, print_log
+from .utils import logger
 
 class Shared:
 
@@ -94,7 +94,7 @@ class Processor(threading.Thread):
             try:
                 result = self.process(request)
                 self.push_response(session, {'id': msg_id, 'result': result})
-            except BaseException, e:
+            except BaseException as e:
                 self.push_response(session, {'id': msg_id, 'error':str(e)})
             except:
                 logger.error("process error", exc_info=True)
@@ -147,7 +147,7 @@ class RequestDispatcher(threading.Thread):
         return self.request_queue.get()
 
     def get_session_by_address(self, address):
-        for x in self.sessions.values():
+        for x in list(self.sessions.values()):
             if x.address == address:
                 return x
 
@@ -197,7 +197,7 @@ class RequestDispatcher(threading.Thread):
 
     def get_sessions(self):
         with self.lock:
-            r = self.sessions.values()
+            r = list(self.sessions.values())
         return r
 
     def add_session(self, session):
