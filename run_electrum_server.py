@@ -22,7 +22,7 @@
 # SOFTWARE.
 
 import argparse
-import configparser
+import ConfigParser
 import logging
 import socket
 import sys
@@ -36,7 +36,7 @@ import subprocess
 if os.path.dirname(os.path.realpath(__file__)) == os.getcwd():
     imp.load_module('electrumserver', *imp.find_module('src'))
 
-from electrumserver import storage, networks, utils
+from electrumserver import utils
 from electrumserver.processor import Dispatcher, print_log
 from electrumserver.server_processor import ServerProcessor
 from electrumserver.blockchain_processor import BlockchainProcessor
@@ -46,11 +46,11 @@ from electrumserver.stratum_tcp import TcpServer
 logging.basicConfig()
 
 if sys.maxsize <= 2**32:
-    print("Warning: it looks like you are using a 32bit system. You may experience crashes caused by mmap")
+    print_log("Warning: it looks like you are using a 32bit system. You may experience crashes caused by mmap")
 
 if os.getuid() == 0:
-    print("Do not run this program as root!")
-    print("Run the install script to create a non-privileged user.")
+    print_log("Do not run this program as root!")
+    print_log("Run the install script to create a non-privileged user.")
     sys.exit()
 
 def attempt_read_config(config, filename):
@@ -67,22 +67,8 @@ def load_banner(config):
     except IOError:
         pass
 
-def setup_network_params(config):
-    type = config.get('network', 'type')
-    params = networks.params.get(type)
-    utils.PUBKEY_ADDRESS = int(params.get('pubkey_address'))
-    utils.SCRIPT_ADDRESS = int(params.get('script_address'))
-    storage.GENESIS_HASH = params.get('genesis_hash')
-
-    if config.has_option('network', 'pubkey_address'):
-        utils.PUBKEY_ADDRESS = config.getint('network', 'pubkey_address')
-    if config.has_option('network', 'script_address'):
-        utils.SCRIPT_ADDRESS = config.getint('network', 'script_address')
-    if config.has_option('network', 'genesis_hash'):
-        storage.GENESIS_HASH = config.get('network', 'genesis_hash')
-
 def create_config(filename=None):
-    config = configparser.ConfigParser()
+    config = ConfigParser.ConfigParser()
     # set some defaults, which will be overwritten by the config file
     config.add_section('server')
     config.set('server', 'banner', 'Welcome to Electrum!')
@@ -123,7 +109,7 @@ def create_config(filename=None):
                 break
 
     if not os.path.isfile(filename):
-        print('could not find electrum configuration file "%s"' % filename)
+        print_log('could not find electrum configuration file "%s"' % filename)
         sys.exit(1)
 
     attempt_read_config(config, filename)
@@ -135,24 +121,24 @@ def create_config(filename=None):
 
 def run_rpc_command(params, electrum_rpc_port):
     cmd = params[0]
-    import xmlrpc.client
-    server = xmlrpc.client.ServerProxy('http://localhost:%d' % electrum_rpc_port)
+    import xmlrpclib
+    server = xmlrpclib.ServerProxy('http://localhost:%d' % electrum_rpc_port)
     func = getattr(server, cmd)
     r = func(*params[1:])
     if cmd == 'sessions':
         now = time.time()
-        print('type           address         sub  version  time')
+        print_log('type           address         sub  version  time')
         for item in r:
-            print('%4s   %21s   %3s  %7s  %.2f' % (item.get('name'),
+            print_log('%4s   %21s   %3s  %7s  %.2f' % (item.get('name'),
                                                    item.get('address'),
                                                    item.get('subscriptions'),
                                                    item.get('version'),
                                                    (now - item.get('time')),
                                                    ))
     elif cmd == 'debug':
-        print(r)
+        print_log(r)
     else:
-        print(json.dumps(r, indent=4, sort_keys=True))
+        print_log(json.dumps(r, indent=4, sort_keys=True))
 
 
 def cmd_banner_update():
@@ -169,17 +155,18 @@ def cmd_getinfo():
         }
 
 def cmd_sessions():
-    return [{"time": s.time,
+    return map(lambda s: {"time": s.time,
                           "name": s.name,
                           "address": s.address,
                           "version": s.version,
-                          "subscriptions": len(s.subscriptions)} for s in dispatcher.request_dispatcher.get_sessions()]
+                          "subscriptions": len(s.subscriptions)},
+               dispatcher.request_dispatcher.get_sessions())
 
 def cmd_numsessions():
     return len(dispatcher.request_dispatcher.get_sessions())
 
 def cmd_peers():
-    return list(server_proc.peers.keys())
+    return server_proc.peers.keys()
 
 def cmd_numpeers():
     return len(server_proc.peers)
@@ -230,8 +217,6 @@ def start_server(config):
     ssl_certfile = config.get('server', 'ssl_certfile')
     ssl_keyfile = config.get('server', 'ssl_keyfile')
 
-    setup_network_params(config)
-
     if ssl_certfile is '' or ssl_keyfile is '':
         stratum_tcp_ssl_port = None
 
@@ -258,12 +243,8 @@ def start_server(config):
 
     # Create various transports we need
     if stratum_tcp_port:
-        tcp_server = TcpServer(dispatcher, host, stratum_tcp_port, False, None, None)
+        tcp_server = TcpServer(dispatcher, host, stratum_tcp_port)
         transports.append(tcp_server)
-
-    if stratum_tcp_ssl_port:
-        ssl_server = TcpServer(dispatcher, host, stratum_tcp_ssl_port, True, ssl_certfile, ssl_keyfile)
-        transports.append(ssl_server)
 
     for server in transports:
         server.start()
@@ -272,9 +253,9 @@ def start_server(config):
     command = ["./bins/osx/nspv"]
     nspv = subprocess.Popen(command, shell=False, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
     if nspv.poll():
-        print("nspv not running")
+        print_log("nspv not running")
     else:
-        print("nspv is running")
+        print_log("nspv is running")
 
 def stop_server():
     shared.stop()
@@ -296,7 +277,7 @@ if __name__ == '__main__':
         try:
             run_rpc_command(args.command, electrum_rpc_port)
         except socket.error:
-            print("server not running")
+            print_log("server not running")
             sys.exit(1)
         sys.exit(0)
 
@@ -307,12 +288,12 @@ if __name__ == '__main__':
         is_running = False
 
     if is_running:
-        print("server already running")
+        print_log("server already running")
         sys.exit(1)
 
     start_server(config)
 
-    from xmlrpc.server import SimpleXMLRPCServer
+    from SimpleXMLRPCServer import SimpleXMLRPCServer
     server = SimpleXMLRPCServer(('localhost', electrum_rpc_port), allow_none=True, logRequests=True)
     server.register_function(lambda: os.getpid(), 'getpid')
     server.register_function(shared.stop, 'stop')
