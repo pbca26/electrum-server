@@ -25,13 +25,11 @@ import socket
 import sys
 import threading
 import time
-import queue
+import Queue
 
 
-from .processor import Processor
-from .utils import Hash, print_log
-from .version import VERSION
-from .utils import logger
+from processor import Processor
+from utils import print_log, logger
 
 
 class ServerProcessor(Processor):
@@ -41,7 +39,7 @@ class ServerProcessor(Processor):
         self.daemon = True
         self.config = config
         self.shared = shared
-        self.irc_queue = queue.Queue()
+        self.irc_queue = Queue.Queue()
         self.peers = {}
         self.irc = None
 
@@ -50,7 +48,7 @@ class ServerProcessor(Processor):
         while True:
             try:
                 event, params = self.irc_queue.get(timeout=1)
-            except queue.Empty:
+            except Queue.Empty:
                 continue
             #logger.info(event + ' ' + repr(params))
             if event == 'join':
@@ -63,7 +61,7 @@ class ServerProcessor(Processor):
 
 
     def get_peers(self):
-        return list(self.peers.values())
+        return self.peers.values()
 
 
     def process(self, request):
@@ -81,7 +79,7 @@ class ServerProcessor(Processor):
             result = self.get_peers()
 
         elif method == 'server.version':
-            result = VERSION
+            result = self.config.get('server', 'version')
 
         else:
             raise BaseException("unknown method: %s"%repr(method))
