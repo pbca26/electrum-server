@@ -38,34 +38,21 @@ READ_WRITE = READ_ONLY | select.POLLOUT
 WRITE_ONLY = select.POLLOUT
 TIMEOUT = 100
 
-import ssl
-
 class TcpSession(Session):
 
-    def __init__(self, dispatcher, connection, address, use_ssl, ssl_certfile, ssl_keyfile):
+    def __init__(self, dispatcher, connection, address):
         Session.__init__(self, dispatcher)
-        self.use_ssl = use_ssl
         self.raw_connection = connection
-        if use_ssl:
-            import ssl
-            self._connection = ssl.wrap_socket(
-                connection,
-                server_side=True,
-                certfile=ssl_certfile,
-                keyfile=ssl_keyfile,
-                ssl_version=ssl.PROTOCOL_SSLv23,
-                do_handshake_on_connect=False)
-        else:
-            self._connection = connection
+        self._connection = connection
 
         self.address = address[0] + ":%d"%address[1]
-        self.name = "TCP " if not use_ssl else "SSL "
+        self.name = "TCP "
         self.timeout = 1000
         self.dispatcher.add_session(self)
         self.response_queue = queue.Queue()
         self.message = ''
         self.retry_msg = ''
-        self.handshake = not self.use_ssl
+        self.handshake = True
         self.mode = None
 
     def connection(self):
@@ -106,7 +93,7 @@ class TcpSession(Session):
 
 class TcpServer(threading.Thread):
 
-    def __init__(self, dispatcher, host, port, use_ssl, ssl_certfile, ssl_keyfile):
+    def __init__(self, dispatcher, host, port):
         self.shared = dispatcher.shared
         self.dispatcher = dispatcher.request_dispatcher
         threading.Thread.__init__(self)
@@ -114,15 +101,9 @@ class TcpServer(threading.Thread):
         self.host = host
         self.port = port
         self.lock = threading.Lock()
-        self.use_ssl = use_ssl
-        self.ssl_keyfile = ssl_keyfile
-        self.ssl_certfile = ssl_certfile
 
         self.fd_to_session = {}
         self.buffer_size = 4096
-
-
-
 
 
     def handle_command(self, raw_command, session):
@@ -168,9 +149,9 @@ class TcpServer(threading.Thread):
         if af == socket.AF_INET6:
             host = "[%s]" % host
         if sock is None:
-            print_log( "could not open " + ("SSL" if self.use_ssl else "TCP") + " socket on %s:%d" % (host, self.port))
+            print_log( "could not open TCP socket on %s:%d" % (host, self.port))
             return
-        print_log( ("SSL" if self.use_ssl else "TCP") + " server started on %s:%d" % (host, self.port))
+        print_log("TCP server started on %s:%d" % (host, self.port))
 
         sock_fd = sock.fileno()
         poller = select.poll()
@@ -189,16 +170,7 @@ class TcpServer(threading.Thread):
         def check_do_handshake(session):
             if session.handshake:
                 return
-            try:
-                session._connection.do_handshake()
-            except ssl.SSLError as err:
-                if err.args[0] == ssl.SSL_ERROR_WANT_READ:
-                    return
-                elif err.args[0] == ssl.SSL_ERROR_WANT_WRITE:
-                    poller.modify(session.raw_connection, READ_WRITE)
-                    return
-                else:
-                    raise BaseException(str(err))
+            session._connection.do_handshake()
             poller.modify(session.raw_connection, READ_ONLY)
             session.handshake = True
 
@@ -255,8 +227,7 @@ class TcpServer(threading.Thread):
                     if flag & (select.POLLIN | select.POLLPRI):
                         try:
                             connection, address = sock.accept()
-                            session = TcpSession(self.dispatcher, connection, address, 
-                                                 use_ssl=self.use_ssl, ssl_certfile=self.ssl_certfile, ssl_keyfile=self.ssl_keyfile)
+                            session = TcpSession(self.dispatcher, connection, address)
                         except BaseException as e:
                             logger.error("cannot start TCP session" + str(e) + ' ' + repr(address))
                             connection.close()
@@ -284,14 +255,6 @@ class TcpServer(threading.Thread):
                 if flag & (select.POLLIN | select.POLLPRI):
                     try:
                         data = s.recv(self.buffer_size)
-                    except ssl.SSLError as x:
-                        if x.args[0] == ssl.SSL_ERROR_WANT_READ: 
-                            pass
-                        elif x.args[0] == ssl.SSL_ERROR_SSL: 
-                            pass
-                        else:
-                            logger.error('SSL recv error:'+ repr(x))
-                        continue 
                     except socket.error as x:
                         if x.args[0] != 104:
                             logger.error('recv error: ' + repr(x) +' %d'%fd)

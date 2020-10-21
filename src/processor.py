@@ -28,8 +28,7 @@ import threading
 import time
 import sys
 
-from utils import random_string, timestr, print_log
-from utils import logger
+from utils import print_log, logger
 
 class Shared:
 
@@ -76,7 +75,7 @@ class Processor(threading.Thread):
         self.queue.put((session, request))
 
     def push_response(self, session, response):
-        #print "response", response
+        #print_log("response", response)
         self.dispatcher.request_dispatcher.push_response(session, response)
 
     def close(self):
